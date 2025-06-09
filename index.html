@@ -536,7 +536,58 @@
             let temporalCount = 0;
             let validDates = 0;
             let todayDates = 0;
+            let minDate = null;
+            let maxDate = null;
             
+            // Primero encontrar el rango de fechas (más viejo a más nuevo)
+            data.forEach((row, index) => {
+                if (row.timestamp_envio) {
+                    let date;
+                    
+                    try {
+                        if (typeof row.timestamp_envio === 'object' && row.timestamp_envio instanceof Date) {
+                            date = new Date(row.timestamp_envio);
+                        } else if (typeof row.timestamp_envio === 'string') {
+                            let dateString = row.timestamp_envio
+                                .replace(/"/g, '')
+                                .replace(/\n/g, '')
+                                .replace(/\r/g, '')
+                                .trim();
+                            
+                            if (!dateString || dateString === 'null') return;
+                            
+                            if (dateString.includes('T') && dateString.endsWith('Z')) {
+                                const localDateString = dateString.replace('Z', '');
+                                date = new Date(localDateString);
+                            } else {
+                                date = new Date(dateString);
+                            }
+                        } else {
+                            return;
+                        }
+                        
+                        if (isNaN(date.getTime())) return;
+                        
+                        const today = new Date();
+                        const isToday = date.toDateString() === today.toDateString();
+                        
+                        if (isToday) {
+                            if (!minDate || date < minDate) minDate = date;
+                            if (!maxDate || date > maxDate) maxDate = date;
+                        }
+                    } catch (error) {
+                        // Silencioso en primera pasada
+                    }
+                }
+            });
+            
+            // Usar hora actual como máximo si es mayor que el último timestamp
+            const now = new Date();
+            if (!maxDate || now > maxDate) maxDate = now;
+            
+            console.log(`Rango temporal: ${minDate} hasta ${maxDate}`);
+            
+            // Ahora procesar los datos dentro del rango completo
             data.forEach((row, index) => {
                 if (row.timestamp_envio) {
                     temporalCount++;
@@ -600,15 +651,13 @@
                                 console.log(`Fila ${index+1}: Hora ${hour}:${minute}`);
                             }
                             
-                            if (hour >= 13 && hour <= 23) {
-                                // Calcular intervalo de 15 minutos
-                                const interval = Math.floor(minute / 15) * 15;
-                                const key = `${hour.toString().padStart(2, '0')}:${interval.toString().padStart(2, '0')}`;
-                                temporal[key] = (temporal[key] || 0) + 1;
-                                
-                                if (index < 3) {
-                                    console.log(`Fila ${index+1}: Intervalo ${key}, total: ${temporal[key]}`);
-                                }
+                            // Calcular intervalo de 15 minutos
+                            const interval = Math.floor(minute / 15) * 15;
+                            const key = `${hour.toString().padStart(2, '0')}:${interval.toString().padStart(2, '0')}`;
+                            temporal[key] = (temporal[key] || 0) + 1;
+                            
+                            if (index < 3) {
+                                console.log(`Fila ${index+1}: Intervalo ${key}, total: ${temporal[key]}`);
                             }
                         }
                     } catch (error) {
@@ -622,6 +671,33 @@
             console.log(`Fechas de hoy: ${todayDates}`);
             console.log("Intervalos temporales generados:", Object.keys(temporal).length);
             console.log("Datos temporales:", temporal);
+            
+            // Generar intervalos completos desde minDate hasta maxDate (hora actual)
+            const temporalCompleto = {};
+            if (minDate && maxDate) {
+                const startHour = minDate.getHours();
+                const startMinute = Math.floor(minDate.getMinutes() / 15) * 15;
+                const endHour = maxDate.getHours();
+                const endMinute = Math.floor(maxDate.getMinutes() / 15) * 15;
+                
+                console.log(`Generando intervalos desde ${startHour}:${startMinute} hasta ${endHour}:${endMinute}`);
+                
+                let currentHour = startHour;
+                let currentMinute = startMinute;
+                
+                while (currentHour < endHour || (currentHour === endHour && currentMinute <= endMinute)) {
+                    const key = `${currentHour.toString().padStart(2, '0')}:${currentMinute.toString().padStart(2, '0')}`;
+                    temporalCompleto[key] = temporal[key] || 0;
+                    
+                    currentMinute += 15;
+                    if (currentMinute >= 60) {
+                        currentMinute = 0;
+                        currentHour++;
+                    }
+                }
+            }
+            
+            console.log("Temporal completo generado:", temporalCompleto);
             
             // Análisis temporal por instancia con intervalos de 15 minutos
             console.log("=== PROCESANDO TEMPORAL POR INSTANCIA ===");
@@ -664,17 +740,15 @@
                             const hour = date.getHours();
                             const minute = date.getMinutes();
                             
-                            if (hour >= 13 && hour <= 23) {
-                                // Calcular intervalo de 15 minutos
-                                const interval = Math.floor(minute / 15) * 15;
-                                const key = `${hour.toString().padStart(2, '0')}:${interval.toString().padStart(2, '0')}`;
-                                const instancia = row.Instancia;
-                                
-                                if (!temporalPorInstancia[instancia]) {
-                                    temporalPorInstancia[instancia] = {};
-                                }
-                                temporalPorInstancia[instancia][key] = (temporalPorInstancia[instancia][key] || 0) + 1;
+                            // Calcular intervalo de 15 minutos
+                            const interval = Math.floor(minute / 15) * 15;
+                            const key = `${hour.toString().padStart(2, '0')}:${interval.toString().padStart(2, '0')}`;
+                            const instancia = row.Instancia;
+                            
+                            if (!temporalPorInstancia[instancia]) {
+                                temporalPorInstancia[instancia] = {};
                             }
+                            temporalPorInstancia[instancia][key] = (temporalPorInstancia[instancia][key] || 0) + 1;
                         }
                     } catch (error) {
                         console.log('Error procesando timestamp por instancia:', row.timestamp_envio, error);
@@ -683,6 +757,35 @@
             });
             
             console.log("Temporal por instancia:", temporalPorInstancia);
+            
+            // Generar temporal completo para cada instancia
+            const temporalPorInstanciaCompleto = {};
+            if (minDate && maxDate) {
+                Object.keys(temporalPorInstancia).forEach(instancia => {
+                    temporalPorInstanciaCompleto[instancia] = {};
+                    
+                    const startHour = minDate.getHours();
+                    const startMinute = Math.floor(minDate.getMinutes() / 15) * 15;
+                    const endHour = maxDate.getHours();
+                    const endMinute = Math.floor(maxDate.getMinutes() / 15) * 15;
+                    
+                    let currentHour = startHour;
+                    let currentMinute = startMinute;
+                    
+                    while (currentHour < endHour || (currentHour === endHour && currentMinute <= endMinute)) {
+                        const key = `${currentHour.toString().padStart(2, '0')}:${currentMinute.toString().padStart(2, '0')}`;
+                        temporalPorInstanciaCompleto[instancia][key] = temporalPorInstancia[instancia][key] || 0;
+                        
+                        currentMinute += 15;
+                        if (currentMinute >= 60) {
+                            currentMinute = 0;
+                            currentHour++;
+                        }
+                    }
+                });
+            }
+            
+            console.log("Temporal por instancia completo:", temporalPorInstanciaCompleto);
             console.log("=== FIN ANÁLISIS ===");
             
             return {
@@ -694,8 +797,8 @@
                 tasaExito: procesados.length > 0 ? (exitosos.length / procesados.length * 100).toFixed(2) : 0,
                 codigosError,
                 instancias,
-                temporal,
-                temporalPorInstancia
+                temporal: temporalCompleto,
+                temporalPorInstancia: temporalPorInstanciaCompleto
             };
         }
         
