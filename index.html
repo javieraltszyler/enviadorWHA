@@ -147,13 +147,14 @@
             gap: 20px;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
         }
-        .charts-grid {
-    display: grid !important;
-    grid-template-columns: repeat(3, 1fr) !important;
+      .charts-grid {
+    display: flex;
+    justify-content: center; /* Centra los tres gráficos */
     gap: 15px;
-    justify-items: center;
+    flex-wrap: wrap;
     width: 100%;
 }
+
 
 .chart-card-centered {
     background: rgba(255, 255, 255, 0.95);
