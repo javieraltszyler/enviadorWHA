@@ -147,13 +147,16 @@
             gap: 20px;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
         }
-      .charts-grid {
+.charts-grid {
     display: flex;
-    justify-content: center; /* Centra los tres gráficos */
+    justify-content: center;
     gap: 15px;
     flex-wrap: wrap;
     width: 100%;
+    max-width: 800px; /* ⬅️ Esto fuerza que no se desparramen */
+    margin: 0 auto;
 }
+
 
 
 .chart-card-centered {
@@ -162,12 +165,12 @@
     border-radius: 15px;
     padding: 20px;
     box-shadow: 0 4px 20px rgba(44, 122, 155, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.3); /* esta línea corregida */
+    border: 1px solid rgba(255, 255, 255, 0.3);
     transition: transform 0.3s ease, box-shadow 0.3s ease;
     width: 100%;
-    max-width: 280px;
-    min-width: 250px;
+    max-width: 240px;
 }
+
 
 .chart-card-centered:hover {
     transform: translateY(-5px);
