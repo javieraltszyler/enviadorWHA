@@ -311,6 +311,32 @@
             align-items: center;
         }
         
+        .instancia-charts {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .instancia-chart {
+            background: rgba(44, 122, 155, 0.05);
+            border-radius: 10px;
+            padding: 15px;
+        }
+        
+        .instancia-title {
+            color: #2C7A9B;
+            margin-bottom: 15px;
+            text-align: center;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        
+        .instancia-chart-container {
+            height: 300px;
+            position: relative;
+        }
+        
         @media (max-width: 768px) {
             .navbar {
                 padding: 15px 20px;
@@ -334,6 +360,10 @@
             
             .container {
                 padding: 20px 15px;
+            }
+            
+            .instancia-charts {
+                grid-template-columns: 1fr;
             }
         }
     </style>
@@ -426,7 +456,23 @@
                 const obj = {};
                 cols.forEach((col, index) => {
                     const cell = row.c[index];
-                    obj[col.label] = cell ? cell.v : null;
+                    let value = cell ? cell.v : null;
+                    
+                    // Manejar fechas específicamente
+                    if (col.label === 'timestamp_envio' && value) {
+                        if (typeof value === 'object' && value.toString) {
+                            // Si es un objeto Date, usar tal como está (ya está en hora local)
+                            obj[col.label] = value;
+                        } else if (typeof value === 'string') {
+                            // Si es string, limpiar y procesar
+                            value = value.replace(/"/g, '').replace(/\n/g, '').trim();
+                            if (value && value !== 'null') {
+                                obj[col.label] = value;
+                            }
+                        }
+                    } else {
+                        obj[col.label] = value;
+                    }
                 });
                 return obj;
             });
@@ -470,36 +516,107 @@
                 }
             });
             
-            // Análisis temporal con corrección de zona horaria
+            // Análisis temporal total con intervalos de 15 minutos
             const temporal = {};
             data.forEach(row => {
                 if (row.timestamp_envio) {
                     let date;
                     
-                    // Detectar y convertir diferentes formatos de fecha
-                    if (typeof row.timestamp_envio === 'string') {
-                        if (row.timestamp_envio.includes('T') && row.timestamp_envio.includes('Z')) {
-                            // Formato ISO UTC: 2025-06-09T15:27:40.853Z
+                    try {
+                        if (typeof row.timestamp_envio === 'object' && row.timestamp_envio instanceof Date) {
                             date = new Date(row.timestamp_envio);
-                            // Convertir de UTC a Argentina (UTC-3)
-                            date.setHours(date.getHours() - 3);
+                        } else if (typeof row.timestamp_envio === 'string') {
+                            let dateString = row.timestamp_envio
+                                .replace(/"/g, '')
+                                .replace(/\n/g, '')
+                                .replace(/\r/g, '')
+                                .trim();
+                            
+                            if (!dateString || dateString === 'null') return;
+                            
+                            if (dateString.includes('T') && dateString.endsWith('Z')) {
+                                date = new Date(dateString);
+                                date = new Date(date.getTime() - (3 * 60 * 60 * 1000));
+                            } else {
+                                date = new Date(dateString);
+                            }
                         } else {
-                            // Formato local: 2025-06-09 15:16:58
-                            date = new Date(row.timestamp_envio.replace(' ', 'T'));
+                            return;
                         }
-                    } else {
-                        date = new Date(row.timestamp_envio);
-                    }
-                    
-                    // Solo procesar si es una fecha válida y del día de hoy
-                    if (!isNaN(date.getTime())) {
+                        
+                        if (isNaN(date.getTime())) return;
+                        
                         const today = new Date();
-                        if (date.toDateString() === today.toDateString()) {
+                        const isToday = date.toDateString() === today.toDateString();
+                        
+                        if (isToday) {
                             const hour = date.getHours();
                             const minute = date.getMinutes();
-                            const key = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-                            temporal[key] = (temporal[key] || 0) + 1;
+                            
+                            if (hour >= 12 && hour <= 23) {
+                                // Calcular intervalo de 15 minutos
+                                const interval = Math.floor(minute / 15) * 15;
+                                const key = `${hour.toString().padStart(2, '0')}:${interval.toString().padStart(2, '0')}`;
+                                temporal[key] = (temporal[key] || 0) + 1;
+                            }
                         }
+                    } catch (error) {
+                        console.log('Error procesando timestamp:', row.timestamp_envio, error);
+                    }
+                }
+            });
+            
+            // Análisis temporal por instancia con intervalos de 15 minutos
+            const temporalPorInstancia = {};
+            data.forEach(row => {
+                if (row.timestamp_envio && row.Instancia) {
+                    let date;
+                    
+                    try {
+                        if (typeof row.timestamp_envio === 'object' && row.timestamp_envio instanceof Date) {
+                            date = new Date(row.timestamp_envio);
+                        } else if (typeof row.timestamp_envio === 'string') {
+                            let dateString = row.timestamp_envio
+                                .replace(/"/g, '')
+                                .replace(/\n/g, '')
+                                .replace(/\r/g, '')
+                                .trim();
+                            
+                            if (!dateString || dateString === 'null') return;
+                            
+                            if (dateString.includes('T') && dateString.endsWith('Z')) {
+                                date = new Date(dateString);
+                                date = new Date(date.getTime() - (3 * 60 * 60 * 1000));
+                            } else {
+                                date = new Date(dateString);
+                            }
+                        } else {
+                            return;
+                        }
+                        
+                        if (isNaN(date.getTime())) return;
+                        
+                        const today = new Date();
+                        const isToday = date.toDateString() === today.toDateString();
+                        
+                        if (isToday) {
+                            const hour = date.getHours();
+                            const minute = date.getMinutes();
+                            
+                            if (hour >= 12 && hour <= 23) {
+                                // Calcular intervalo de 15 minutos
+                                const interval = Math.floor(minute / 15) * 15;
+                                const key = `${hour.toString().padStart(2, '0')}:${interval.toString().padStart(2, '0')}`;
+                                const instancia = row.Instancia;
+                                
+                                if (!temporalPorInstancia[instancia]) {
+                                    temporalPorInstancia[instancia] = {};
+                                }
+                                temporalPorInstancia[instancia][key] = (temporalPorInstancia[instancia][key] || 0) + 1;
+                            }
+                        }
+                    } catch (error) {
+                        console.log('Error procesando timestamp por instancia:', row.timestamp_envio, error);
                     }
                 }
             });
@@ -513,7 +630,8 @@
                 tasaExito: procesados.length > 0 ? (exitosos.length / procesados.length * 100).toFixed(2) : 0,
                 codigosError,
                 instancias,
-                temporal
+                temporal,
+                temporalPorInstancia
             };
         }
         
@@ -593,7 +711,7 @@
         }
         
         function createCharts(analysis) {
-            return `
+            let chartsHTML = `
                 <div class="card">
                     <div class="chart-title">Estado de Procesamiento</div>
                     <div class="chart-container">
@@ -616,12 +734,41 @@
                 </div>
                 
                 <div class="card" style="grid-column: 1 / -1;">
-                    <div class="chart-title">Actividad de Envíos por Minuto</div>
+                    <div class="chart-title">📊 Actividad de Envíos por Intervalos de 15 Minutos (Total)</div>
                     <div class="chart-container">
                         <canvas id="temporalChart"></canvas>
                     </div>
                 </div>
             `;
+            
+            // Obtener instancias únicas y agregar gráficos por instancia
+            const instanciasUnicas = Object.keys(analysis.instancias).filter(inst => inst && inst !== 'null').sort();
+            
+            if (instanciasUnicas.length > 0) {
+                chartsHTML += `
+                    <div class="card" style="grid-column: 1 / -1;">
+                        <div class="chart-title">📈 Actividad por Instancia Individual</div>
+                        <div class="instancia-charts">
+                `;
+                
+                instanciasUnicas.forEach(instancia => {
+                    chartsHTML += `
+                        <div class="instancia-chart">
+                            <div class="instancia-title">🔹 ${instancia.charAt(0).toUpperCase() + instancia.slice(1)}</div>
+                            <div class="instancia-chart-container">
+                                <canvas id="temporal_${instancia}"></canvas>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                chartsHTML += `
+                        </div>
+                    </div>
+                `;
+            }
+            
+            return chartsHTML;
         }
         
         function renderCharts(analysis) {
@@ -762,7 +909,7 @@
                 });
             }
             
-            // Gráfico Temporal
+            // Gráfico Temporal Total
             const temporalCtx = document.getElementById('temporalChart');
             if (temporalCtx && Object.keys(analysis.temporal).length > 0) {
                 const labels = Object.keys(analysis.temporal).sort();
@@ -773,7 +920,7 @@
                     data: {
                         labels: labels,
                         datasets: [{
-                            label: 'Mensajes por Minuto',
+                            label: 'Mensajes por Minuto (Total)',
                             data: data,
                             borderColor: lomasColors.primary,
                             backgroundColor: lomasColors.primary + '20',
@@ -810,6 +957,88 @@
                     }
                 });
             }
+            
+            // Gráficos Temporales por Instancia (ÚNICO de instancias)
+            const instanciasUnicas = Object.keys(analysis.instancias).filter(inst => inst && inst !== 'null').sort();
+            const instanciaColors = [lomasColors.primary, lomasColors.secondary, lomasColors.light, '#ec4899', '#f59e0b', '#8b5cf6'];
+            
+            instanciasUnicas.forEach((instancia, index) => {
+                const canvasId = `temporal_${instancia}`;
+                const ctx = document.getElementById(canvasId);
+                
+                if (ctx && analysis.temporalPorInstancia[instancia]) {
+                    const temporalData = analysis.temporalPorInstancia[instancia];
+                    const labels = Object.keys(temporalData).sort();
+                    const data = labels.map(label => temporalData[label]);
+                    
+                    const colorIndex = index % instanciaColors.length;
+                    const color = instanciaColors[colorIndex];
+                    
+                    charts[`temporal_${instancia}`] = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: `${instancia} - Mensajes por Minuto`,
+                                data: data,
+                                borderColor: color,
+                                backgroundColor: color + '20',
+                                borderWidth: 3,
+                                fill: true,
+                                tension: 0.4,
+                                pointBackgroundColor: color,
+                                pointBorderColor: '#ffffff',
+                                pointBorderWidth: 2,
+                                pointRadius: 6,
+                                pointHoverRadius: 10
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { 
+                                legend: { 
+                                    display: true,
+                                    position: 'top',
+                                    labels: {
+                                        color: lomasColors.primary,
+                                        font: { size: 12 }
+                                    }
+                                },
+                                tooltip: {
+                                    backgroundColor: color,
+                                    callbacks: {
+                                        title: function(context) {
+                                            return `${instancia} - ${context[0].label}`;
+                                        },
+                                        label: function(context) {
+                                            return `${context.parsed.y} mensajes`;
+                                        }
+                                    }
+                                }
+                            },
+                            scales: {
+                                y: { 
+                                    beginAtZero: true,
+                                    grid: { color: '#E6F3FF' },
+                                    ticks: { 
+                                        color: lomasColors.primary,
+                                        font: { size: 11 }
+                                    }
+                                },
+                                x: { 
+                                    grid: { color: '#E6F3FF' },
+                                    ticks: { 
+                                        color: lomasColors.primary,
+                                        font: { size: 11 },
+                                        maxTicksLimit: 8
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+            });
         }
         
         function showLoading() {
@@ -850,9 +1079,11 @@
                 second: '2-digit'
             });
             
-            const updateTimeElements = document.querySelectorAll('#updateTime');
+            const updateTimeElements = document.querySelectorAll('#updateTime, .update-time');
             updateTimeElements.forEach(element => {
-                element.textContent = `Última actualización: ${timeString}`;
+                if (element.id === 'updateTime') {
+                    element.textContent = `Última actualización: ${timeString}`;
+                }
             });
         }
         
