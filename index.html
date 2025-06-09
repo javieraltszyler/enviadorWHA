@@ -149,8 +149,8 @@
         }
         .charts-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 20px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
     justify-items: center;
 }
 
@@ -158,12 +158,12 @@
     background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(10px);
     border-radius: 15px;
-    padding: 25px;
+    padding: 20px;
     box-shadow: 0 4px 20px rgba(44, 122, 155, 0.1);
     border: 1px solid rgba(255, 255, 255, 0.3);
     transition: transform 0.3s ease, box-shadow 0.3s ease;
     width: 100%;
-    max-width: 300px;
+    max-width: 280px;
 }
 
 .chart-card-centered:hover {
@@ -369,7 +369,22 @@
             height: 300px;
             position: relative;
         }
-        
+        /* Forzar 3 columnas en pantallas medianas */
+@media (min-width: 769px) and (max-width: 1200px) {
+    .charts-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+    }
+    
+    .chart-card-centered {
+        max-width: 250px;
+        padding: 15px;
+    }
+}
+
+@media (max-width: 768px) {
+    /* Tu código existente de responsive */
+}
         @media (max-width: 768px) {
             .navbar {
                 padding: 15px 20px;
@@ -543,11 +558,17 @@
             console.log("Con error:", conError.length);
             
             // Análisis de códigos de error
-            const codigosError = {};
-            conError.forEach(row => {
-                const codigo = row.rta_api || 'Sin código';
-                codigosError[codigo] = (codigosError[codigo] || 0) + 1;
-            });
+           // Análisis de códigos de error MÁS ESPECÍFICO
+const codigosError = {};
+const telefonosErroneos = procesados.filter(row => row.rta_api === 400); // Error 400
+const enviosFallidos = procesados.filter(row => row.rta_api === 500);     // Error 500
+const otrosErrores = procesados.filter(row => row.rta_api !== 201 && row.rta_api !== 400 && row.rta_api !== 500);
+
+// Mantener el análisis general de códigos para el gráfico
+conError.forEach(row => {
+    const codigo = row.rta_api || 'Sin código';
+    codigosError[codigo] = (codigosError[codigo] || 0) + 1;
+});
             
             // Análisis por instancia
             const instancias = {};
@@ -835,7 +856,7 @@ function detectarCaidas(temporalCompleto, temporalPorInstancia) {
     
     // Solo verificar caídas si han pasado al menos 15 minutos desde el inicio del bloque
     // O si estamos en un bloque que ya debería tener actividad
-    const deberiaVerificarCaidas = tiempoTranscurridoEnBloque >= 15;
+    const deberiaVerificarCaidas = tiempoTranscurridoEnBloque >= 1;
     
     if (!deberiaVerificarCaidas) {
         console.log("Muy temprano en el bloque actual para detectar caídas");
@@ -913,18 +934,21 @@ function detectarCaidas(temporalCompleto, temporalPorInstancia) {
             const analisisCaidas = detectarCaidas(temporalCompleto, temporalPorInstanciaCompleto);
 
             return {
-                total,
-                procesados: procesados.length,
-                enCola: enCola.length,
-                exitosos: exitosos.length,
-                conError: conError.length,
-                tasaExito: procesados.length > 0 ? (exitosos.length / procesados.length * 100).toFixed(2) : 0,
-                codigosError,
-                instancias,
-                temporal: temporalCompleto,
-                temporalPorInstancia: temporalPorInstanciaCompleto,
-                caidas: analisisCaidas
-            };
+    total,
+    procesados: procesados.length,
+    enCola: enCola.length,
+    exitosos: exitosos.length,
+    conError: conError.length,
+    telefonosErroneos: telefonosErroneos.length,
+    enviosFallidos: enviosFallidos.length,
+    otrosErrores: otrosErrores.length,
+    tasaExito: procesados.length > 0 ? (exitosos.length / procesados.length * 100).toFixed(2) : 0,
+    codigosError,
+    instancias,
+    temporal: temporalCompleto,
+    temporalPorInstancia: temporalPorInstanciaCompleto,
+    caidas: analisisCaidas
+};
         }
         
         function createAlert(analysis) {
@@ -988,35 +1012,35 @@ function detectarCaidas(temporalCompleto, temporalPorInstancia) {
 }
         
         function createKPIs(analysis) {
-            return `
-                <div class="kpi-grid">
-                    <div class="kpi-card status-total">
-                        <div class="kpi-value">${analysis.total}</div>
-                        <div class="kpi-label">Total Mensajes</div>
-                    </div>
-                    <div class="kpi-card status-processed">
-                        <div class="kpi-value">${analysis.procesados}</div>
-                        <div class="kpi-label">Mensajes Procesados</div>
-                    </div>
-                    <div class="kpi-card status-success">
-                        <div class="kpi-value">${analysis.exitosos}</div>
-                        <div class="kpi-label">Mensajes Exitosos</div>
-                    </div>
-                    <div class="kpi-card status-error">
-                        <div class="kpi-value">${analysis.conError}</div>
-                        <div class="kpi-label">Mensajes con Error</div>
-                    </div>
-                    <div class="kpi-card status-queue">
-                        <div class="kpi-value">${analysis.enCola}</div>
-                        <div class="kpi-label">Mensajes en Cola</div>
-                    </div>
-                    <div class="kpi-card status-rate">
-                        <div class="kpi-value">${analysis.tasaExito}%</div>
-                        <div class="kpi-label">Tasa de Éxito</div>
-                    </div>
-                </div>
-            `;
-        }
+    return `
+        <div class="kpi-grid">
+            <div class="kpi-card status-total">
+                <div class="kpi-value">${analysis.total}</div>
+                <div class="kpi-label">Total Mensajes</div>
+            </div>
+            <div class="kpi-card status-processed">
+                <div class="kpi-value">${analysis.procesados}</div>
+                <div class="kpi-label">Mensajes Procesados</div>
+            </div>
+            <div class="kpi-card status-success">
+                <div class="kpi-value">${analysis.exitosos}</div>
+                <div class="kpi-label">Envíos Exitosos</div>
+            </div>
+            <div class="kpi-card status-error">
+                <div class="kpi-value">${analysis.telefonosErroneos}</div>
+                <div class="kpi-label">Teléfonos Erróneos</div>
+            </div>
+            <div class="kpi-card status-queue">
+                <div class="kpi-value">${analysis.enviosFallidos}</div>
+                <div class="kpi-label">Envíos Fallidos</div>
+            </div>
+            <div class="kpi-card status-rate">
+                <div class="kpi-value">${analysis.tasaExito}%</div>
+                <div class="kpi-label">Tasa de Éxito</div>
+            </div>
+        </div>
+    `;
+}
        function createCharts(analysis) {
     let chartsHTML = `
         <div class="charts-grid">
