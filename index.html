@@ -120,9 +120,16 @@
             margin-bottom: 20px;
         }
         
-        .update-time {
-            color: #888;
+        .page-header .update-time {
+            color: #15803d;
             font-size: 0.9rem;
+            font-weight: 500;
+        }
+        
+        .update-time {
+            color: #15803d;
+            font-size: 0.9rem;
+            font-weight: 500;
         }
         
         .dashboard {
@@ -463,15 +470,37 @@
                 }
             });
             
-            // Análisis temporal
+            // Análisis temporal con corrección de zona horaria
             const temporal = {};
             data.forEach(row => {
                 if (row.timestamp_envio) {
-                    const date = new Date(row.timestamp_envio);
-                    const hour = date.getHours();
-                    const minute = date.getMinutes();
-                    const key = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-                    temporal[key] = (temporal[key] || 0) + 1;
+                    let date;
+                    
+                    // Detectar y convertir diferentes formatos de fecha
+                    if (typeof row.timestamp_envio === 'string') {
+                        if (row.timestamp_envio.includes('T') && row.timestamp_envio.includes('Z')) {
+                            // Formato ISO UTC: 2025-06-09T15:27:40.853Z
+                            date = new Date(row.timestamp_envio);
+                            // Convertir de UTC a Argentina (UTC-3)
+                            date.setHours(date.getHours() - 3);
+                        } else {
+                            // Formato local: 2025-06-09 15:16:58
+                            date = new Date(row.timestamp_envio.replace(' ', 'T'));
+                        }
+                    } else {
+                        date = new Date(row.timestamp_envio);
+                    }
+                    
+                    // Solo procesar si es una fecha válida y del día de hoy
+                    if (!isNaN(date.getTime())) {
+                        const today = new Date();
+                        if (date.toDateString() === today.toDateString()) {
+                            const hour = date.getHours();
+                            const minute = date.getMinutes();
+                            const key = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+                            temporal[key] = (temporal[key] || 0) + 1;
+                        }
+                    }
                 }
             });
             
@@ -490,6 +519,7 @@
         
         function createAlert(analysis) {
             const tasaExito = parseFloat(analysis.tasaExito);
+            const porcentajeProcesamiento = ((analysis.procesados / analysis.total) * 100).toFixed(2);
             
             if (tasaExito >= 80) {
                 return `
@@ -498,7 +528,7 @@
                             <span class="alert-icon">✅</span>
                             <div>
                                 <strong>Sistema funcionando correctamente</strong><br>
-                                Tasa de éxito del ${analysis.tasaExito}% en mensajes procesados. 
+                                ${porcentajeProcesamiento}% de mensajes procesados (${analysis.procesados} de ${analysis.total}). 
                                 ${analysis.enCola} mensajes en cola de procesamiento.
                             </div>
                         </div>
@@ -511,7 +541,7 @@
                             <span class="alert-icon">⚠️</span>
                             <div>
                                 <strong>Atención: Rendimiento moderado</strong><br>
-                                Tasa de éxito del ${analysis.tasaExito}%. Se recomienda revisar errores recurrentes.
+                                ${porcentajeProcesamiento}% de mensajes procesados. Tasa de éxito del ${analysis.tasaExito}%. Se recomienda revisar errores recurrentes.
                             </div>
                         </div>
                     </div>
@@ -523,7 +553,7 @@
                             <span class="alert-icon">🚨</span>
                             <div>
                                 <strong>Alerta: Baja tasa de éxito</strong><br>
-                                Solo ${analysis.tasaExito}% de éxito. Es necesario revisar la configuración del sistema urgentemente.
+                                ${porcentajeProcesamiento}% de mensajes procesados. Solo ${analysis.tasaExito}% de éxito. Es necesario revisar la configuración del sistema urgentemente.
                             </div>
                         </div>
                     </div>
