@@ -561,26 +561,11 @@
                             if (index < 3) console.log(`Fila ${index+1}: String limpio - "${dateString}"`);
                             
                             if (dateString.includes('T') && dateString.endsWith('Z')) {
-                                // Parsear manualmente para evitar conversión automática del navegador
-                                const parts = dateString.replace('Z', '').split('T');
-                                const datePart = parts[0].split('-');
-                                const timePart = parts[1].split(':');
-                                const secondsPart = timePart[2].split('.');
-                                
-                                // Crear fecha en UTC y convertir manualmente a Argentina (-3h)
-                                const utcDate = new Date(Date.UTC(
-                                    parseInt(datePart[0]), // año
-                                    parseInt(datePart[1]) - 1, // mes (0-based)
-                                    parseInt(datePart[2]), // día
-                                    parseInt(timePart[0]), // hora
-                                    parseInt(timePart[1]), // minuto
-                                    parseInt(secondsPart[0]), // segundo
-                                    parseInt(secondsPart[1] || 0) // milisegundo
-                                ));
-                                
-                                // Convertir UTC a Argentina (-3 horas)
-                                date = new Date(utcDate.getTime() - (3 * 60 * 60 * 1000));
-                                if (index < 3) console.log(`Fila ${index+1}: UTC manual ${utcDate} -> Argentina ${date}`);
+                                // El timestamp YA está en hora Argentina correcta
+                                // Remover la Z y parsearlo como hora local
+                                const localDateString = dateString.replace('Z', '');
+                                date = new Date(localDateString);
+                                if (index < 3) console.log(`Fila ${index+1}: Timestamp local directo - ${date}`);
                             } else {
                                 date = new Date(dateString);
                                 if (index < 3) console.log(`Fila ${index+1}: Fecha directa - ${date}`);
@@ -615,7 +600,7 @@
                                 console.log(`Fila ${index+1}: Hora ${hour}:${minute}`);
                             }
                             
-                            if (hour >= 12 && hour <= 23) {
+                            if (hour >= 13 && hour <= 23) {
                                 // Calcular intervalo de 15 minutos
                                 const interval = Math.floor(minute / 15) * 15;
                                 const key = `${hour.toString().padStart(2, '0')}:${interval.toString().padStart(2, '0')}`;
@@ -659,25 +644,10 @@
                             if (!dateString || dateString === 'null') return;
                             
                             if (dateString.includes('T') && dateString.endsWith('Z')) {
-                                // Parsear manualmente para evitar conversión automática del navegador
-                                const parts = dateString.replace('Z', '').split('T');
-                                const datePart = parts[0].split('-');
-                                const timePart = parts[1].split(':');
-                                const secondsPart = timePart[2].split('.');
-                                
-                                // Crear fecha en UTC y convertir manualmente a Argentina (-3h)
-                                const utcDate = new Date(Date.UTC(
-                                    parseInt(datePart[0]), // año
-                                    parseInt(datePart[1]) - 1, // mes (0-based)
-                                    parseInt(datePart[2]), // día
-                                    parseInt(timePart[0]), // hora
-                                    parseInt(timePart[1]), // minuto
-                                    parseInt(secondsPart[0]), // segundo
-                                    parseInt(secondsPart[1] || 0) // milisegundo
-                                ));
-                                
-                                // Convertir UTC a Argentina (-3 horas)
-                                date = new Date(utcDate.getTime() - (3 * 60 * 60 * 1000));
+                                // El timestamp YA está en hora Argentina correcta
+                                // Remover la Z y parsearlo como hora local
+                                const localDateString = dateString.replace('Z', '');
+                                date = new Date(localDateString);
                             } else {
                                 date = new Date(dateString);
                             }
@@ -694,7 +664,7 @@
                             const hour = date.getHours();
                             const minute = date.getMinutes();
                             
-                            if (hour >= 12 && hour <= 23) {
+                            if (hour >= 13 && hour <= 23) {
                                 // Calcular intervalo de 15 minutos
                                 const interval = Math.floor(minute / 15) * 15;
                                 const key = `${hour.toString().padStart(2, '0')}:${interval.toString().padStart(2, '0')}`;
