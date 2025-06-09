@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Mensajería WHA - Live Data</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .dashboard {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            gap: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .header {
+            grid-column: 1 / -1;
+            text-align: center;
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 40px;
+        }
+        
+        .header h1 {
+            font-size: 2rem;
+            font-weight: bold;
+        }
+        
+        .update-info {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+        
+        .refresh-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        
+        .refresh-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            grid-column: 1 / -1;
+        }
+        
+        .kpi-card {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            color: white;
+            text-align: center;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(79, 70, 229, 0.3);
+        }
+        
+        .kpi-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        
+        .kpi-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 400px;
+            width: 100%;
+        }
+        
+        .chart-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #374151;
+            text-align: center;
+        }
+        
+        .status-success { background: linear-gradient(135deg, #10b981, #059669); }
+        .status-error { background: linear-gradient(135deg, #ef4444, #dc2626); }
+        .status-queue { background: linear-gradient(135deg, #f59e0b, #d97706); }
+        .status-total { background: linear-gradient(135deg, #6366f1, #4f46e5); }
+        .status-rate { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+        .status-processed { background: linear-gradient(135deg, #06b6d4, #0891b2); }
+        
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 200px;
+            font-size: 1.2rem;
+            color: #6b7280;
+        }
+        
+        .error {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            color: #b91c1c;
+            grid-column: 1 / -1;
+        }
+        
+        .success-alert {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            color: #15803d;
+            grid-column: 1 / -1;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f4f6;
+            border-top: 4px solid #4f46e5;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard" id="dashboard">
+        <!-- Header -->
+        <div class="header">
+            <div>
+                <h1>📱 Dashboard Mensajería WHA</h1>
+                <div class="update-info">Datos en tiempo real desde Google Sheets</div>
+            </div>
+            <button class="refresh-btn" onclick="loadData()">🔄 Actualizar</button>
+        </div>
+        
+        <!-- Loading State -->
+        <div class="card loading" id="loading" style="grid-column: 1 / -1;">
+            <div class="spinner"></div>
+            <div>Cargando datos desde Google Sheets...</div>
+        </div>
+    </div>
+
+    <script>
+        // Configuración
+        const SHEET_ID = '1qTmFunrbfVWlG7EMTnGYrdeMbJxNt5DkEK8aE80jC2s';
+        const SHEET_NAME = 'Estado_envios';
+        const API_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${SHEET_NAME}`;
+        
+        let charts = {};
+        let rawData = [];
+        
+        // Configuración global de Chart.js
+        Chart.defaults.font.family = 'Segoe UI';
+        Chart.defaults.plugins.legend.position = 'bottom';
+        
+        async function loadData() {
+            try {
+                showLoading();
+                
+                const response = await fetch(API_URL);
+                const text = await response.text();
+                
+                // Google Sheets devuelve JSONP, necesitamos extraer el JSON
+                const json = JSON.parse(text.substr(47).slice(0, -2));
+                
+                if (!json.table || !json.table.rows) {
+                    throw new Error('No se encontraron datos en la hoja Estado_envios');
+                }
+                
+                // Procesar datos
+                rawData = processGoogleSheetsData(json);
+                
+                // Crear dashboard
+                createDashboard(rawData);
+                
+                hideLoading();
+                
+            } catch (error) {
+                console.error('Error cargando datos:', error);
+                showError(error.message);
+            }
+        }
+        
+        function processGoogleSheetsData(json) {
+            const cols = json.table.cols;
+            const rows = json.table.rows;
+            
+            return rows.map(row => {
+                const obj = {};
+                cols.forEach((col, index) => {
+                    const cell = row.c[index];
+                    obj[col.label] = cell ? cell.v : null;
+                });
+                return obj;
+            });
+        }
+        
+        function createDashboard(data) {
+            // Análisis de datos
+            const analysis = analyzeData(data);
+            
+            // Crear contenido del dashboard
+            const dashboard = document.getElementById('dashboard');
+            dashboard.innerHTML = `
+                <!-- Header -->
+                <div class="header">
+                    <div>
+                        <h1>📱 Dashboard Mensajería WHA</h1>
+                        <div class="update-info">Última actualización: ${new Date().toLocaleString('es-AR')}</div>
+                    </div>
+                    <button class="refresh-btn" onclick="loadData()">🔄 Actualizar</button>
+                </div>
+                
+                ${createAlert(analysis)}
+                ${createKPIs(analysis)}
+                ${createCharts(analysis)}
+            `;
+            
+            // Renderizar gráficos
+            renderCharts(analysis);
+        }
+        
+        function analyzeData(data) {
+            const total = data.length;
+            const procesados = data.filter(row => row.Estado !== 'en_cola');
+            const enCola = data.filter(row => row.Estado === 'en_cola');
+            const exitosos = data.filter(row => row.rta_api === 201);
+            const conError = procesados.filter(row => row.rta_api !== 201);
+            
+            // Análisis de códigos de error
+            const codigosError = {};
+            conError.forEach(row => {
+                const codigo = row.rta_api || 'Sin código';
+                codigosError[codigo] = (codigosError[codigo] || 0) + 1;
+            });
+            
+            // Análisis por instancia
+            const instancias = {};
+            procesados.forEach(row => {
+                if (row.Instancia) {
+                    instancias[row.Instancia] = (instancias[row.Instancia] || 0) + 1;
+                }
+            });
+            
+            // Análisis temporal (si hay timestamps)
+            const temporal = {};
+            data.forEach(row => {
+                if (row.timestamp_envio) {
+                    const date = new Date(row.timestamp_envio);
+                    const hour = date.getHours();
+                    const minute = date.getMinutes();
+                    const key = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+                    temporal[key] = (temporal[key] || 0) + 1;
+                }
+            });
+            
+            return {
+                total,
+                procesados: procesados.length,
+                enCola: enCola.length,
+                exitosos: exitosos.length,
+                conError: conError.length,
+                tasaExito: procesados.length > 0 ? (exitosos.length / procesados.length * 100).toFixed(2) : 0,
+                codigosError,
+                instancias,
+                temporal
+            };
+        }
+        
+        function createAlert(analysis) {
+            const tasaExito = parseFloat(analysis.tasaExito);
+            
+            if (tasaExito >= 80) {
+                return `
+                    <div class="success-alert">
+                        <strong>✅ Sistema funcionando correctamente</strong><br>
+                        Tasa de éxito del ${analysis.tasaExito}% en mensajes procesados. 
+                        ${analysis.enCola} mensajes en cola de procesamiento.
+                    </div>
+                `;
+            } else if (tasaExito >= 60) {
+                return `
+                    <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 15px; margin-bottom: 20px; color: #92400e; grid-column: 1 / -1;">
+                        <strong>⚠️ Atención: Rendimiento moderado</strong><br>
+                        Tasa de éxito del ${analysis.tasaExito}%. Revisar errores recurrentes.
+                    </div>
+                `;
+            } else {
+                return `
+                    <div class="error">
+                        <strong>🚨 Alerta: Baja tasa de éxito</strong><br>
+                        Solo ${analysis.tasaExito}% de éxito. Revisar configuración del sistema urgentemente.
+                    </div>
+                `;
+            }
+        }
+        
+        function createKPIs(analysis) {
+            return `
+                <div class="kpi-grid">
+                    <div class="kpi-card status-total">
+                        <div class="kpi-value">${analysis.total}</div>
+                        <div class="kpi-label">Total Mensajes</div>
+                    </div>
+                    <div class="kpi-card status-processed">
+                        <div class="kpi-value">${analysis.procesados}</div>
+                        <div class="kpi-label">Mensajes Procesados</div>
+                    </div>
+                    <div class="kpi-card status-success">
+                        <div class="kpi-value">${analysis.exitosos}</div>
+                        <div class="kpi-label">Mensajes Exitosos</div>
+                    </div>
+                    <div class="kpi-card status-error">
+                        <div class="kpi-value">${analysis.conError}</div>
+                        <div class="kpi-label">Mensajes con Error</div>
+                    </div>
+                    <div class="kpi-card status-queue">
+                        <div class="kpi-value">${analysis.enCola}</div>
+                        <div class="kpi-label">Mensajes en Cola</div>
+                    </div>
+                    <div class="kpi-card status-rate">
+                        <div class="kpi-value">${analysis.tasaExito}%</div>
+                        <div class="kpi-label">Tasa de Éxito</div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function createCharts(analysis) {
+            return `
+                <div class="card">
+                    <div class="chart-title">Estado de Procesamiento</div>
+                    <div class="chart-container">
+                        <canvas id="estadosChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="chart-title">Códigos de Respuesta API</div>
+                    <div class="chart-container">
+                        <canvas id="codigosChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="chart-title">Distribución por Instancia</div>
+                    <div class="chart-container">
+                        <canvas id="instanciasChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="card" style="grid-column: 1 / -1;">
+                    <div class="chart-title">Actividad por Minuto</div>
+                    <div class="chart-container">
+                        <canvas id="temporalChart"></canvas>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function renderCharts(analysis) {
+            // Destruir gráficos existentes
+            Object.values(charts).forEach(chart => chart.destroy());
+            charts = {};
+            
+            // Gráfico de Estados
+            const estadosCtx = document.getElementById('estadosChart');
+            if (estadosCtx) {
+                charts.estados = new Chart(estadosCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Exitosos (201)', 'Error', 'En Cola'],
+                        datasets: [{
+                            data: [analysis.exitosos, analysis.conError, analysis.enCola],
+                            backgroundColor: ['#10b981', '#ef4444', '#f59e0b'],
+                            borderWidth: 0,
+                            hoverOffset: 10
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'bottom' },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                        const percentage = ((context.parsed * 100) / total).toFixed(1);
+                                        return context.label + ': ' + context.parsed + ' (' + percentage + '%)';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // Gráfico de Códigos de Error
+            const codigosCtx = document.getElementById('codigosChart');
+            if (codigosCtx && Object.keys(analysis.codigosError).length > 0) {
+                const labels = Object.keys(analysis.codigosError);
+                const data = Object.values(analysis.codigosError);
+                
+                charts.codigos = new Chart(codigosCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            data: data,
+                            backgroundColor: ['#f59e0b', '#ef4444', '#6b7280'],
+                            borderRadius: 8
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { beginAtZero: true },
+                            x: { grid: { display: false } }
+                        }
+                    }
+                });
+            }
+            
+            // Gráfico de Instancias
+            const instanciasCtx = document.getElementById('instanciasChart');
+            if (instanciasCtx && Object.keys(analysis.instancias).length > 0) {
+                const labels = Object.keys(analysis.instancias);
+                const data = Object.values(analysis.instancias);
+                
+                charts.instancias = new Chart(instanciasCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            data: data,
+                            backgroundColor: ['#4f46e5', '#7c3aed', '#ec4899'],
+                            borderRadius: 8
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { beginAtZero: true },
+                            x: { grid: { display: false } }
+                        }
+                    }
+                });
+            }
+            
+            // Gráfico Temporal
+            const temporalCtx = document.getElementById('temporalChart');
+            if (temporalCtx && Object.keys(analysis.temporal).length > 0) {
+                const labels = Object.keys(analysis.temporal).sort();
+                const data = labels.map(label => analysis.temporal[label]);
+                
+                charts.temporal = new Chart(temporalCtx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Mensajes por Minuto',
+                            data: data,
+                            borderColor: '#4f46e5',
+                            backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                            borderWidth: 3,
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { beginAtZero: true },
+                            x: { grid: { color: '#f3f4f6' } }
+                        }
+                    }
+                });
+            }
+        }
+        
+        function showLoading() {
+            document.getElementById('dashboard').innerHTML = `
+                <div class="header">
+                    <div>
+                        <h1>📱 Dashboard Mensajería WHA</h1>
+                        <div class="update-info">Cargando datos...</div>
+                    </div>
+                    <button class="refresh-btn" onclick="loadData()">🔄 Actualizar</button>
+                </div>
+                <div class="card loading" style="grid-column: 1 / -1;">
+                    <div class="spinner"></div>
+                    <div>Conectando con Google Sheets...</div>
+                </div>
+            `;
+        }
+        
+        function hideLoading() {
+            const loading = document.getElementById('loading');
+            if (loading) loading.style.display = 'none';
+        }
+        
+        function showError(message) {
+            document.getElementById('dashboard').innerHTML = `
+                <div class="header">
+                    <div>
+                        <h1>📱 Dashboard Mensajería WHA</h1>
+                        <div class="update-info">Error al cargar datos</div>
+                    </div>
+                    <button class="refresh-btn" onclick="loadData()">🔄 Reintentar</button>
+                </div>
+                <div class="error">
+                    <strong>❌ Error al conectar con Google Sheets</strong><br>
+                    ${message}<br><br>
+                    <strong>Verificar:</strong><br>
+                    • La hoja "Estado_envios" existe en el documento<br>
+                    • El documento está compartido públicamente<br>
+                    • La URL del documento es correcta
+                </div>
+            `;
+        }
+        
+        // Cargar datos al inicializar
+        window.addEventListener('load', loadData);
+        
+        // Auto-refresh cada 30 segundos
+        setInterval(loadData, 30000);
+    </script>
+</body>
+</html>
