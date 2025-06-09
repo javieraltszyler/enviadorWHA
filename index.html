@@ -126,17 +126,50 @@
             font-weight: 500;
         }
         
-        .update-time {
-            color: #15803d;
-            font-size: 0.9rem;
-            font-weight: 500;
-        }
+       .update-time {
+    color: white;
+    font-size: 1rem;
+    font-weight: 600;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 8px 16px;
+    border-radius: 20px;
+    backdrop-filter: blur(5px);
+}
+
+.page-header .update-time {
+    color: #2C7A9B;
+    background: rgba(44, 122, 155, 0.1);
+    border: 1px solid rgba(44, 122, 155, 0.2);
+}
         
         .dashboard {
             display: grid;
             gap: 20px;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
         }
+        .charts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    justify-items: center;
+}
+
+.chart-card-centered {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 15px;
+    padding: 25px;
+    box-shadow: 0 4px 20px rgba(44, 122, 155, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    width: 100%;
+    max-width: 400px;
+}
+
+.chart-card-centered:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 30px rgba(44, 122, 155, 0.2);
+}
         
         .card {
             background: rgba(255, 255, 255, 0.95);
@@ -794,7 +827,7 @@
                 const ultimosIntervalos = [];
                 
                 // Generar últimos 3 intervalos de 15min
-                for(let i = 2; i >= 0; i--) {
+                    for(let i = 0; i >= 0; i--) {
                     const tiempo = new Date(ahora.getTime() - (i * 15 * 60 * 1000));
                     const hora = tiempo.getHours();
                     const minuto = Math.floor(tiempo.getMinutes() / 15) * 15;
@@ -872,48 +905,64 @@
         }
         
         function createAlert(analysis) {
-            const tasaExito = parseFloat(analysis.tasaExito);
-            const porcentajeProcesamiento = ((analysis.procesados / analysis.total) * 100).toFixed(2);
-            
-            if (tasaExito >= 80) {
-                return `
-                    <div class="success-alert">
-                        <div class="alert-content">
-                            <span class="alert-icon">✅</span>
-                            <div>
-                                <strong>Sistema funcionando correctamente</strong><br>
-                                ${porcentajeProcesamiento}% de mensajes procesados (${analysis.procesados} de ${analysis.total}). 
-                                ${analysis.enCola} mensajes en cola de procesamiento.
-                            </div>
+    const porcentajeProcesamiento = ((analysis.procesados / analysis.total) * 100).toFixed(2);
+    
+    // Generar alertas basadas en caídas detectadas
+    if (analysis.caidas.sistemaCompleto) {
+        return `
+            <div class="error">
+                <div class="alert-content">
+                    <span class="alert-icon">🚨</span>
+                    <div>
+                        <strong>Sistema Completamente Caído</strong><br>
+                        Sin actividad desde las ${analysis.caidas.sistemaCaidoDesde || 'hace tiempo'}<br>
+                        ${porcentajeProcesamiento}% de mensajes procesados (${analysis.procesados} de ${analysis.total}). 
+                        ${analysis.enCola} mensajes en cola.
+                    </div>
+                </div>
+            </div>
+        `;
+    } else if (analysis.caidas.instanciasCaidas.length > 0) {
+        let alertasHTML = '';
+        analysis.caidas.instanciasCaidas.forEach(instancia => {
+            alertasHTML += `
+                <div class="warning-alert">
+                    <div class="alert-content">
+                        <span class="alert-icon">⚠️</span>
+                        <div>
+                            <strong>${instancia.nombre} Sin Respuesta</strong><br>
+                            Sin actividad desde las ${instancia.desde || 'hace tiempo'}
                         </div>
                     </div>
-                `;
-            } else if (tasaExito >= 60) {
-                return `
-                    <div class="warning-alert">
-                        <div class="alert-content">
-                            <span class="alert-icon">⚠️</span>
-                            <div>
-                                <strong>Atención: Rendimiento moderado</strong><br>
-                                ${porcentajeProcesamiento}% de mensajes procesados. Tasa de éxito del ${analysis.tasaExito}%. Se recomienda revisar errores recurrentes.
-                            </div>
-                        </div>
+                </div>
+            `;
+        });
+        
+        alertasHTML += `
+            <div style="background: rgba(255, 255, 255, 0.95); border-radius: 15px; padding: 15px; margin-top: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+                <div style="color: #2C7A9B; font-weight: 600;">
+                    📊 Estado general: ${porcentajeProcesamiento}% procesados (${analysis.procesados} de ${analysis.total}). ${analysis.enCola} en cola.
+                </div>
+            </div>
+        `;
+        
+        return alertasHTML;
+    } else {
+        return `
+            <div class="success-alert">
+                <div class="alert-content">
+                    <span class="alert-icon">✅</span>
+                    <div>
+                        <strong>Sistema Operativo</strong><br>
+                        Todas las instancias funcionando correctamente<br>
+                        ${porcentajeProcesamiento}% de mensajes procesados (${analysis.procesados} de ${analysis.total}). 
+                        ${analysis.enCola} mensajes en cola.
                     </div>
-                `;
-            } else {
-                return `
-                    <div class="error">
-                        <div class="alert-content">
-                            <span class="alert-icon">🚨</span>
-                            <div>
-                                <strong>Alerta: Baja tasa de éxito</strong><br>
-                                ${porcentajeProcesamiento}% de mensajes procesados. Solo ${analysis.tasaExito}% de éxito. Es necesario revisar la configuración del sistema urgentemente.
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }
-        }
+                </div>
+            </div>
+        `;
+    }
+}
         
         function createKPIs(analysis) {
             return `
@@ -945,337 +994,341 @@
                 </div>
             `;
         }
+       function createCharts(analysis) {
+    let chartsHTML = `
+        <div class="charts-grid">
+            <div class="chart-card-centered">
+                <div class="chart-title">Estado de Procesamiento</div>
+                <div class="chart-container">
+                    <canvas id="estadosChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="chart-card-centered">
+                <div class="chart-title">Códigos de Respuesta API</div>
+                <div class="chart-container">
+                    <canvas id="codigosChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="chart-card-centered">
+                <div class="chart-title">Distribución por Instancia</div>
+                <div class="chart-container">
+                    <canvas id="instanciasChart"></canvas>
+                </div>
+            </div>
+        </div>
         
-        function createCharts(analysis) {
-            let chartsHTML = `
-                <div class="card">
-                    <div class="chart-title">Estado de Procesamiento</div>
-                    <div class="chart-container">
-                        <canvas id="estadosChart"></canvas>
-                    </div>
-                </div>
-                
-                <div class="card">
-                    <div class="chart-title">Códigos de Respuesta API</div>
-                    <div class="chart-container">
-                        <canvas id="codigosChart"></canvas>
-                    </div>
-                </div>
-                
-                <div class="card">
-                    <div class="chart-title">Distribución por Instancia</div>
-                    <div class="chart-container">
-                        <canvas id="instanciasChart"></canvas>
-                    </div>
-                </div>
-                
-                <div class="card" style="grid-column: 1 / -1;">
-                    <div class="chart-title">📊 Actividad de Envíos por Intervalos de 15 Minutos (Total)</div>
-                    <div class="chart-container">
-                        <canvas id="temporalChart"></canvas>
+        <div class="card" style="grid-column: 1 / -1;">
+            <div class="chart-title">📊 Actividad de Envíos por Intervalos de 15 Minutos (Total)</div>
+            <div class="chart-container">
+                <canvas id="temporalChart"></canvas>
+            </div>
+        </div>
+    `;
+    
+    // Obtener instancias únicas y agregar gráficos por instancia
+    const instanciasUnicas = Object.keys(analysis.instancias).filter(inst => inst && inst !== 'null').sort();
+    
+    if (instanciasUnicas.length > 0) {
+        chartsHTML += `
+            <div class="card" style="grid-column: 1 / -1;">
+                <div class="chart-title">📈 Actividad por Instancia Individual (Intervalos de 15 min)</div>
+                <div class="instancia-charts">
+        `;
+        
+        instanciasUnicas.forEach(instancia => {
+            chartsHTML += `
+                <div class="instancia-chart">
+                    <div class="instancia-title">🔹 ${instancia.charAt(0).toUpperCase() + instancia.slice(1)}</div>
+                    <div class="instancia-chart-container">
+                        <canvas id="temporal_${instancia}"></canvas>
                     </div>
                 </div>
             `;
-            
-            // Obtener instancias únicas y agregar gráficos por instancia
-            const instanciasUnicas = Object.keys(analysis.instancias).filter(inst => inst && inst !== 'null').sort();
-            
-            if (instanciasUnicas.length > 0) {
-                chartsHTML += `
-                    <div class="card" style="grid-column: 1 / -1;">
-                        <div class="chart-title">📈 Actividad por Instancia Individual (Intervalos de 15 min)</div>
-                        <div class="instancia-charts">
-                `;
-                
-                instanciasUnicas.forEach(instancia => {
-                    chartsHTML += `
-                        <div class="instancia-chart">
-                            <div class="instancia-title">🔹 ${instancia.charAt(0).toUpperCase() + instancia.slice(1)}</div>
-                            <div class="instancia-chart-container">
-                                <canvas id="temporal_${instancia}"></canvas>
-                            </div>
-                        </div>
-                    `;
-                });
-                
-                chartsHTML += `
-                        </div>
-                    </div>
-                `;
-            }
-            
-            return chartsHTML;
-        }
+        });
+        
+        chartsHTML += `
+                </div>
+            </div>
+        `;
+    }
+    
+    return chartsHTML;
+}
         
         function renderCharts(analysis) {
-            // Destruir gráficos existentes
-            Object.values(charts).forEach(chart => chart.destroy());
-            charts = {};
-            
-            // Colores institucionales de Lomas
-            const lomasColors = {
-                primary: '#2C7A9B',
-                secondary: '#4BA3C7',
-                success: '#10b981',
-                error: '#ef4444',
-                warning: '#f59e0b',
-                light: '#87CEEB'
-            };
-            
-            // Gráfico de Estados
-            const estadosCtx = document.getElementById('estadosChart');
-            if (estadosCtx) {
-                charts.estados = new Chart(estadosCtx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: ['Exitosos (201)', 'Error', 'En Cola'],
-                        datasets: [{
-                            data: [analysis.exitosos, analysis.conError, analysis.enCola],
-                            backgroundColor: [lomasColors.success, lomasColors.error, lomasColors.warning],
-                            borderWidth: 3,
-                            borderColor: '#ffffff',
-                            hoverOffset: 15
-                        }]
+    // Destruir gráficos existentes
+    Object.values(charts).forEach(chart => chart.destroy());
+    charts = {};
+    
+    // Colores institucionales de Lomas
+    const lomasColors = {
+        primary: '#2C7A9B',
+        secondary: '#4BA3C7',
+        success: '#10b981',
+        error: '#ef4444',
+        warning: '#f59e0b',
+        light: '#87CEEB',
+        caida: '#ec4899' // Color rosa/magenta para instancias caídas
+    };
+    
+    // Gráfico de Estados
+    const estadosCtx = document.getElementById('estadosChart');
+    if (estadosCtx) {
+        charts.estados = new Chart(estadosCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Exitosos (201)', 'Error', 'En Cola'],
+                datasets: [{
+                    data: [analysis.exitosos, analysis.conError, analysis.enCola],
+                    backgroundColor: [lomasColors.success, lomasColors.error, lomasColors.warning],
+                    borderWidth: 3,
+                    borderColor: '#ffffff',
+                    hoverOffset: 15
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { 
+                        position: 'bottom',
+                        labels: {
+                            padding: 20,
+                            usePointStyle: true,
+                            color: lomasColors.primary
+                        }
                     },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: { 
-                                position: 'bottom',
-                                labels: {
-                                    padding: 20,
-                                    usePointStyle: true,
-                                    color: lomasColors.primary
-                                }
-                            },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                        const percentage = ((context.parsed * 100) / total).toFixed(1);
-                                        return context.label + ': ' + context.parsed + ' (' + percentage + '%)';
-                                    }
-                                }
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((context.parsed * 100) / total).toFixed(1);
+                                return context.label + ': ' + context.parsed + ' (' + percentage + '%)';
                             }
                         }
                     }
-                });
+                }
             }
-            
-            // Gráfico de Códigos de Error
-            const codigosCtx = document.getElementById('codigosChart');
-            if (codigosCtx && Object.keys(analysis.codigosError).length > 0) {
-                const labels = Object.keys(analysis.codigosError);
-                const data = Object.values(analysis.codigosError);
-                
-                charts.codigos = new Chart(codigosCtx, {
-                    type: 'bar',
-                    data: {
-                        labels: labels,
-                        datasets: [{
-                            data: data,
-                            backgroundColor: [lomasColors.warning, lomasColors.error, lomasColors.primary],
-                            borderRadius: 10,
-                            borderSkipped: false
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { 
-                            legend: { display: false },
-                            tooltip: {
-                                backgroundColor: lomasColors.primary
-                            }
-                        },
-                        scales: {
-                            y: { 
-                                beginAtZero: true,
-                                grid: { color: '#E6F3FF' },
-                                ticks: { color: lomasColors.primary }
-                            },
-                            x: { 
-                                grid: { display: false },
-                                ticks: { color: lomasColors.primary }
-                            }
-                        }
+        });
+    }
+    
+    // Gráfico de Códigos de Error
+    const codigosCtx = document.getElementById('codigosChart');
+    if (codigosCtx && Object.keys(analysis.codigosError).length > 0) {
+        const labels = Object.keys(analysis.codigosError);
+        const data = Object.values(analysis.codigosError);
+        
+        charts.codigos = new Chart(codigosCtx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: data,
+                    backgroundColor: [lomasColors.warning, lomasColors.error, lomasColors.primary],
+                    borderRadius: 10,
+                    borderSkipped: false
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { 
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: lomasColors.primary
                     }
-                });
-            }
-            
-            // Gráfico de Instancias
-            const instanciasCtx = document.getElementById('instanciasChart');
-            if (instanciasCtx && Object.keys(analysis.instancias).length > 0) {
-                const labels = Object.keys(analysis.instancias);
-                const data = Object.values(analysis.instancias);
-                
-                charts.instancias = new Chart(instanciasCtx, {
-                    type: 'bar',
-                    data: {
-                        labels: labels,
-                        datasets: [{
-                            data: data,
-                            backgroundColor: [lomasColors.primary, lomasColors.secondary, lomasColors.light],
-                            borderRadius: 10,
-                            borderSkipped: false
-                        }]
+                },
+                scales: {
+                    y: { 
+                        beginAtZero: true,
+                        grid: { color: '#E6F3FF' },
+                        ticks: { color: lomasColors.primary }
                     },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { 
-                            legend: { display: false },
-                            tooltip: {
-                                backgroundColor: lomasColors.primary
-                            }
-                        },
-                        scales: {
-                            y: { 
-                                beginAtZero: true,
-                                grid: { color: '#E6F3FF' },
-                                ticks: { color: lomasColors.primary }
-                            },
-                            x: { 
-                                grid: { display: false },
-                                ticks: { color: lomasColors.primary }
-                            }
-                        }
+                    x: { 
+                        grid: { display: false },
+                        ticks: { color: lomasColors.primary }
                     }
-                });
+                }
             }
-            
-            // Gráfico Temporal Total
-            const temporalCtx = document.getElementById('temporalChart');
-            if (temporalCtx && Object.keys(analysis.temporal).length > 0) {
-                const labels = Object.keys(analysis.temporal).sort();
-                const data = labels.map(label => analysis.temporal[label]);
-                
-                charts.temporal = new Chart(temporalCtx, {
-                    type: 'line',
-                    data: {
-                        labels: labels,
-                        datasets: [{
-                            label: 'Mensajes por 15 min (Total)',
-                            data: data,
-                            borderColor: lomasColors.primary,
-                            backgroundColor: lomasColors.primary + '20',
-                            borderWidth: 4,
-                            fill: true,
-                            tension: 0.4,
-                            pointBackgroundColor: lomasColors.primary,
-                            pointBorderColor: '#ffffff',
-                            pointBorderWidth: 3,
-                            pointRadius: 8,
-                            pointHoverRadius: 12
-                        }]
+        });
+    }
+    
+    // Gráfico de Instancias
+    const instanciasCtx = document.getElementById('instanciasChart');
+    if (instanciasCtx && Object.keys(analysis.instancias).length > 0) {
+        const labels = Object.keys(analysis.instancias);
+        const data = Object.values(analysis.instancias);
+        
+        charts.instancias = new Chart(instanciasCtx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: data,
+                    backgroundColor: [lomasColors.primary, lomasColors.secondary, lomasColors.light],
+                    borderRadius: 10,
+                    borderSkipped: false
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { 
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: lomasColors.primary
+                    }
+                },
+                scales: {
+                    y: { 
+                        beginAtZero: true,
+                        grid: { color: '#E6F3FF' },
+                        ticks: { color: lomasColors.primary }
                     },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { 
-                            legend: { display: false },
-                            tooltip: {
-                                backgroundColor: lomasColors.primary
-                            }
-                        },
-                        scales: {
-                            y: { 
-                                beginAtZero: true,
-                                grid: { color: '#E6F3FF' },
-                                ticks: { color: lomasColors.primary }
-                            },
-                            x: { 
-                                grid: { color: '#E6F3FF' },
-                                ticks: { color: lomasColors.primary }
-                            }
-                        }
+                    x: { 
+                        grid: { display: false },
+                        ticks: { color: lomasColors.primary }
                     }
-                });
+                }
             }
+        });
+    }
+    
+    // Gráfico Temporal Total
+    const temporalCtx = document.getElementById('temporalChart');
+    if (temporalCtx && Object.keys(analysis.temporal).length > 0) {
+        const labels = Object.keys(analysis.temporal).sort();
+        const data = labels.map(label => analysis.temporal[label]);
+        
+        charts.temporal = new Chart(temporalCtx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Mensajes por 15 min (Total)',
+                    data: data,
+                    borderColor: lomasColors.primary,
+                    backgroundColor: lomasColors.primary + '20',
+                    borderWidth: 4,
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: lomasColors.primary,
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 3,
+                    pointRadius: 8,
+                    pointHoverRadius: 12
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { 
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: lomasColors.primary
+                    }
+                },
+                scales: {
+                    y: { 
+                        beginAtZero: true,
+                        grid: { color: '#E6F3FF' },
+                        ticks: { color: lomasColors.primary }
+                    },
+                    x: { 
+                        grid: { color: '#E6F3FF' },
+                        ticks: { color: lomasColors.primary }
+                    }
+                }
+            }
+        });
+    }
+    
+    // Gráficos Temporales por Instancia - NUEVA LÓGICA DE COLORES
+    const instanciasUnicas = Object.keys(analysis.instancias).filter(inst => inst && inst !== 'null').sort();
+    
+    // Crear un Set de instancias caídas para fácil lookup
+    const instanciasCaidasSet = new Set(analysis.caidas.instanciasCaidas.map(inst => inst.nombre));
+    
+    instanciasUnicas.forEach((instancia, index) => {
+        const canvasId = `temporal_${instancia}`;
+        const ctx = document.getElementById(canvasId);
+        
+        if (ctx && analysis.temporalPorInstancia[instancia]) {
+            const temporalData = analysis.temporalPorInstancia[instancia];
+            const labels = Object.keys(temporalData).sort();
+            const data = labels.map(label => temporalData[label]);
             
-            // Gráficos Temporales por Instancia (ÚNICO de instancias)
-            const instanciasUnicas = Object.keys(analysis.instancias).filter(inst => inst && inst !== 'null').sort();
-            const instanciaColors = [lomasColors.primary, lomasColors.secondary, lomasColors.light, '#ec4899', '#f59e0b', '#8b5cf6'];
+            // Determinar color: rosa si está caída, azul si está activa
+            const color = instanciasCaidasSet.has(instancia) ? lomasColors.caida : lomasColors.primary;
             
-            instanciasUnicas.forEach((instancia, index) => {
-                const canvasId = `temporal_${instancia}`;
-                const ctx = document.getElementById(canvasId);
-                
-                if (ctx && analysis.temporalPorInstancia[instancia]) {
-                    const temporalData = analysis.temporalPorInstancia[instancia];
-                    const labels = Object.keys(temporalData).sort();
-                    const data = labels.map(label => temporalData[label]);
-                    
-                    const colorIndex = index % instanciaColors.length;
-                    const color = instanciaColors[colorIndex];
-                    
-                    charts[`temporal_${instancia}`] = new Chart(ctx, {
-                        type: 'line',
-                        data: {
-                            labels: labels,
-                            datasets: [{
-                                label: `${instancia} - Mensajes por 15 min`,
-                                data: data,
-                                borderColor: color,
-                                backgroundColor: color + '20',
-                                borderWidth: 3,
-                                fill: true,
-                                tension: 0.4,
-                                pointBackgroundColor: color,
-                                pointBorderColor: '#ffffff',
-                                pointBorderWidth: 2,
-                                pointRadius: 6,
-                                pointHoverRadius: 10
-                            }]
+            charts[`temporal_${instancia}`] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: `${instancia} - Mensajes por 15 min`,
+                        data: data,
+                        borderColor: color,
+                        backgroundColor: color + '20',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: color,
+                        pointBorderColor: '#ffffff',
+                        pointBorderWidth: 2,
+                        pointRadius: 6,
+                        pointHoverRadius: 10
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { 
+                        legend: { 
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                color: lomasColors.primary,
+                                font: { size: 12 }
+                            }
                         },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: { 
-                                legend: { 
-                                    display: true,
-                                    position: 'top',
-                                    labels: {
-                                        color: lomasColors.primary,
-                                        font: { size: 12 }
-                                    }
+                        tooltip: {
+                            backgroundColor: color,
+                            callbacks: {
+                                title: function(context) {
+                                    return `${instancia} - ${context[0].label}`;
                                 },
-                                tooltip: {
-                                    backgroundColor: color,
-                                    callbacks: {
-                                        title: function(context) {
-                                            return `${instancia} - ${context[0].label}`;
-                                        },
-                                        label: function(context) {
-                                            return `${context.parsed.y} mensajes`;
-                                        }
-                                    }
-                                }
-                            },
-                            scales: {
-                                y: { 
-                                    beginAtZero: true,
-                                    grid: { color: '#E6F3FF' },
-                                    ticks: { 
-                                        color: lomasColors.primary,
-                                        font: { size: 11 }
-                                    }
-                                },
-                                x: { 
-                                    grid: { color: '#E6F3FF' },
-                                    ticks: { 
-                                        color: lomasColors.primary,
-                                        font: { size: 11 },
-                                        maxTicksLimit: 8
-                                    }
+                                label: function(context) {
+                                    return `${context.parsed.y} mensajes`;
                                 }
                             }
                         }
-                    });
+                    },
+                    scales: {
+                        y: { 
+                            beginAtZero: true,
+                            grid: { color: '#E6F3FF' },
+                            ticks: { 
+                                color: lomasColors.primary,
+                                font: { size: 11 }
+                            }
+                        },
+                        x: { 
+                            grid: { color: '#E6F3FF' },
+                            ticks: { 
+                                color: lomasColors.primary,
+                                font: { size: 11 },
+                                maxTicksLimit: 8
+                            }
+                        }
+                    }
                 }
             });
         }
+    });
+}
         
         function showLoading() {
             document.getElementById('dashboard').innerHTML = `
