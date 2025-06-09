@@ -561,11 +561,10 @@
                             if (index < 3) console.log(`Fila ${index+1}: String limpio - "${dateString}"`);
                             
                             if (dateString.includes('T') && dateString.endsWith('Z')) {
+                                // JavaScript automáticamente convierte UTC a hora local
                                 date = new Date(dateString);
-                                if (index < 3) console.log(`Fila ${index+1}: Fecha UTC original - ${date}`);
-                                // Convertir de UTC a Argentina (-3h)
-                                date = new Date(date.getTime() - (3 * 60 * 60 * 1000));
-                                if (index < 3) console.log(`Fila ${index+1}: Fecha Argentina - ${date}`);
+                                if (index < 3) console.log(`Fila ${index+1}: Fecha ya en hora local - ${date}`);
+                                // NO restar 3 horas adicionales - JS ya lo hizo
                             } else {
                                 date = new Date(dateString);
                                 if (index < 3) console.log(`Fila ${index+1}: Fecha directa - ${date}`);
@@ -644,8 +643,8 @@
                             if (!dateString || dateString === 'null') return;
                             
                             if (dateString.includes('T') && dateString.endsWith('Z')) {
+                                // JavaScript automáticamente convierte UTC a hora local
                                 date = new Date(dateString);
-                                date = new Date(date.getTime() - (3 * 60 * 60 * 1000));
                             } else {
                                 date = new Date(dateString);
                             }
