@@ -148,10 +148,11 @@
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
         }
         .charts-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
     gap: 15px;
     justify-items: center;
+    width: 100%;
 }
 
 .chart-card-centered {
@@ -160,10 +161,11 @@
     border-radius: 15px;
     padding: 20px;
     box-shadow: 0 4px 20px rgba(44, 122, 155, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.3); /* esta línea corregida */
     transition: transform 0.3s ease, box-shadow 0.3s ease;
     width: 100%;
     max-width: 280px;
+    min-width: 250px;
 }
 
 .chart-card-centered:hover {
@@ -369,22 +371,8 @@
             height: 300px;
             position: relative;
         }
-        /* Forzar 3 columnas en pantallas medianas */
-@media (min-width: 769px) and (max-width: 1200px) {
-    .charts-grid {
-        grid-template-columns: repeat(3, 1fr);
-        gap: 10px;
-    }
-    
-    .chart-card-centered {
-        max-width: 250px;
-        padding: 15px;
-    }
-}
 
-@media (max-width: 768px) {
-    /* Tu código existente de responsive */
-}
+
         @media (max-width: 768px) {
             .navbar {
                 padding: 15px 20px;
