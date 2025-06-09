@@ -788,6 +788,74 @@
             console.log("Temporal por instancia completo:", temporalPorInstanciaCompleto);
             console.log("=== FIN ANÁLISIS ===");
             
+            // Función para detectar caídas del sistema
+            function detectarCaidas(temporalCompleto, temporalPorInstancia) {
+                const ahora = new Date();
+                const ultimosIntervalos = [];
+                
+                // Generar últimos 3 intervalos de 15min
+                for(let i = 2; i >= 0; i--) {
+                    const tiempo = new Date(ahora.getTime() - (i * 15 * 60 * 1000));
+                    const hora = tiempo.getHours();
+                    const minuto = Math.floor(tiempo.getMinutes() / 15) * 15;
+                    ultimosIntervalos.push(`${hora.toString().padStart(2, '0')}:${minuto.toString().padStart(2, '0')}`);
+                }
+                
+                console.log("Últimos intervalos para análisis:", ultimosIntervalos);
+                
+                // Verificar si todo el sistema está caído
+                const actividadSistema = ultimosIntervalos.map(intervalo => temporalCompleto[intervalo] || 0);
+                const sistemaCompleto = actividadSistema.every(actividad => actividad === 0);
+                
+                // Encontrar desde cuándo está caído el sistema
+                let sistemaCaidoDesde = null;
+                if (sistemaCompleto) {
+                    const intervalosOrdenados = Object.keys(temporalCompleto).sort();
+                    for (let i = intervalosOrdenados.length - 1; i >= 0; i--) {
+                        if (temporalCompleto[intervalosOrdenados[i]] > 0) {
+                            sistemaCaidoDesde = intervalosOrdenados[i + 1] || intervalosOrdenados[i];
+                            break;
+                        }
+                    }
+                }
+                
+                // Verificar instancias individuales caídas
+                const instanciasCaidas = [];
+                Object.keys(temporalPorInstancia).forEach(instancia => {
+                    const actividadInstancia = ultimosIntervalos.map(intervalo => 
+                        temporalPorInstancia[instancia][intervalo] || 0
+                    );
+                    const instanciaCaida = actividadInstancia.every(actividad => actividad === 0);
+                    
+                    if (instanciaCaida && !sistemaCompleto) {
+                        // Encontrar desde cuándo está caída esta instancia
+                        const intervalosInstancia = Object.keys(temporalPorInstancia[instancia]).sort();
+                        let instanciaCaidaDesde = null;
+                        for (let i = intervalosInstancia.length - 1; i >= 0; i--) {
+                            if (temporalPorInstancia[instancia][intervalosInstancia[i]] > 0) {
+                                instanciaCaidaDesde = intervalosInstancia[i + 1] || intervalosInstancia[i];
+                                break;
+                            }
+                        }
+                        instanciasCaidas.push({
+                            nombre: instancia,
+                            desde: instanciaCaidaDesde
+                        });
+                    }
+                });
+                
+                console.log("Análisis de caídas:", { sistemaCompleto, sistemaCaidoDesde, instanciasCaidas });
+                
+                return { 
+                    sistemaCompleto, 
+                    sistemaCaidoDesde,
+                    instanciasCaidas,
+                    ultimosIntervalos
+                };
+            }
+
+            const analisisCaidas = detectarCaidas(temporalCompleto, temporalPorInstanciaCompleto);
+
             return {
                 total,
                 procesados: procesados.length,
@@ -798,7 +866,8 @@
                 codigosError,
                 instancias,
                 temporal: temporalCompleto,
-                temporalPorInstancia: temporalPorInstanciaCompleto
+                temporalPorInstancia: temporalPorInstanciaCompleto,
+                caidas: analisisCaidas
             };
         }
         
