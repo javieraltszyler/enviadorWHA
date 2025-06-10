@@ -1,0 +1,1292 @@
+{
+  "name": "My workflow 2",
+  "nodes": [
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d1d0ba0b-94aa-4acc-b6ad-1af78761abe4",
+              "name": "config",
+              "value": "={{ $('Webhook').item.json.body.config }}",
+              "type": "string"
+            },
+            {
+              "id": "c4866d54-9193-4bbd-8f42-5f60a66a45c2",
+              "name": "mensajes",
+              "value": "={{ $('Webhook').item.json.body.mensajes }}",
+              "type": "string"
+            },
+            {
+              "id": "45ada443-6cff-40f3-ae61-67d589d1c43a",
+              "name": "wait_min_segundos",
+              "value": "={{ $('Webhook').item.json.body.config.wait_min_segundos }}",
+              "type": "string"
+            },
+            {
+              "id": "387c846b-7bb1-4302-a1b0-30aef145ae75",
+              "name": "wait_max_segundos",
+              "value": "={{ $('Webhook').item.json.body.config.wait_max_segundos }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1220,
+        -680
+      ],
+      "id": "0cdf5576-7a84-401c-8acd-99e038bb206f",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parsear los campos JSON que están como string\nconst config = JSON.parse($json.config);\nconst mensajes = JSON.parse($json.mensajes);\n\nreturn [\n  {\n    json: {\n      wait_min_segundos: parseInt($json.wait_min_segundos, 10),\n      wait_max_segundos: parseInt($json.wait_max_segundos, 10),\n      cantidad_por_lote: config.cantidad_por_lote,\n      instancias: config.instancias,\n      mensajes: mensajes\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -900,
+        -700
+      ],
+      "id": "b7a38244-aa6f-4dac-aa86-5c7d91bffff8",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "jsCode": "console.log(`=== INICIO Code1 ===`);\nconsole.log(`Lote recibido con ${$json.lote?.length || 0} mensajes`);\n\n// Verificar que tenemos los datos necesarios\nif (!$json.instancias || !$json.lote) {\n  console.log(`❌ Faltan datos: instancias=${!!$json.instancias}, lote=${!!$json.lote}`);\n  return [{ json: $json }];\n}\n\nconst instancias = $json.instancias.filter(i => i.activa);\nconst mensajes = $json.lote;\n\nconsole.log(`Procesando ${mensajes.length} mensajes con ${instancias.length} instancias`);\n\nconst salida = [];\nfor (let i = 0; i < mensajes.length; i++) {\n  const mensaje = mensajes[i];\n  const instanciaIndex = i % instancias.length;\n  const instancia = instancias[instanciaIndex];\n  \n  console.log(`Mensaje ${i+1}: ${mensaje.numero_destinatario} → ${instancia.instancia}`);\n  \n  salida.push({\n    json: {\n      id: mensaje.id,\n      number: mensaje.numero_destinatario,\n      mediatype: \"image\",\n      mimetype: \"image/png\", \n      caption: mensaje.mensaje,\n      media: mensaje.imagen_url,\n      fileName: \"imagen-prueba.png\",\n      delay: 10000,\n      presence: \"composing\",\n      linkPreview: true,\n      mentionsEveryOne: false,\n      token: instancia.token,\n      url: instancia.url_completa,\n      instancia: instancia.instancia,\n      numero_remitente: instancia.numero_remitente\n    }\n  });\n}\n\nconsole.log(`=== FIN Code1 - Generados ${salida.length} items ===`);\nreturn salida;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -140,
+        -1060
+      ],
+      "id": "9969548f-104a-4f61-b622-7b6a8dfde286",
+      "name": "Code1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "=apikey",
+              "value": "={{ $json.token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "number",
+              "value": "={{ $json.numero_destinatario }}"
+            },
+            {
+              "name": "caption",
+              "value": "={{ $json.caption }}"
+            },
+            {
+              "name": "fileName",
+              "value": "={{ $json.file_name }}"
+            },
+            {
+              "name": "media",
+              "value": "={{ $json.media }}"
+            },
+            {
+              "name": "mediatype",
+              "value": "={{ $json.media_type }}"
+            },
+            {
+              "name": "=mimeType",
+              "value": "={{ $json.mime_type }}"
+            },
+            {
+              "name": "linkPreview",
+              "value": "={{ $json.link_preview }}"
+            },
+            {
+              "name": "mentionsEveryOne",
+              "value": "={{ $json.mentions_everyone }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        600,
+        -1100
+      ],
+      "id": "5b522407-4933-461e-bb67-51fd2987697f",
+      "name": "HTTP Request",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "amount": "={{ $json.delay_segundos }}"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2120,
+        -880
+      ],
+      "id": "65c877c0-950f-4d97-8265-4cfd0edc997f",
+      "name": "Wait",
+      "webhookId": "a53e7d48-ad69-49a4-add7-db12aaef3776"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Accede directamente al nodo Webhook, sin depender del contexto actual\nconst config = $('Webhook').first().json.body?.config ?? {};\nconst min = config.wait_min_segundos ?? 8;\nconst max = config.wait_max_segundos ?? 20;\n\n// Genera un número aleatorio entre min y max\nconst delay = Math.floor(Math.random() * (max - min + 1)) + min;\n\nreturn [\n  {\n    json: {\n      delay_segundos: delay\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2080,
+        -1100
+      ],
+      "id": "35447638-faa2-4c91-afa1-c00b91862e55",
+      "name": "Code2"
+    },
+    {
+      "parameters": {
+        "jsCode": "const instancias = $json.instancias.filter(i => i.activa);\nconst mensajes = $json.mensajes;\nconst loteSize = instancias.length;\n\nconst lotes = [];\nfor (let i = 0; i < mensajes.length; i += loteSize) {\n  lotes.push({\n    lote: mensajes.slice(i, i + loteSize),\n    instancias: instancias\n  });\n}\n\nreturn lotes.map(item => ({ json: item }));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -620,
+        -680
+      ],
+      "id": "9fada1e7-163a-40b4-8e99-b7708b26b9e8",
+      "name": "Code3"
+    },
+    {
+      "parameters": {
+        "options": {
+          "reset": false
+        }
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -380,
+        -760
+      ],
+      "id": "3e375de0-0eaf-4af0-9a52-8e46dd474c53",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1qTmFunrbfVWlG7EMTnGYrdeMbJxNt5DkEK8aE80jC2s",
+          "mode": "list",
+          "cachedResultName": "Enviador mensajes masivos",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1qTmFunrbfVWlG7EMTnGYrdeMbJxNt5DkEK8aE80jC2s/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 911537833,
+          "mode": "list",
+          "cachedResultName": "Jobs",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1qTmFunrbfVWlG7EMTnGYrdeMbJxNt5DkEK8aE80jC2s/edit#gid=911537833"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "estado": "procesando",
+            "timestamp_iniciado": "={{(() => {\n  const fechaUTC = new Date();              // Fecha actual en UTC\n  fechaUTC.setHours(fechaUTC.getHours() - 3); // Ajuste a UTC-3\n  return fechaUTC.toISOString();            // Resultado en formato ISO\n})()}}",
+            "nro_job": "={{ $json.body.nro_job }}"
+          },
+          "matchingColumns": [
+            "nro_job"
+          ],
+          "schema": [
+            {
+              "id": "timestamp_recibido",
+              "displayName": "timestamp_recibido",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "nro_job",
+              "displayName": "nro_job",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "origen",
+              "displayName": "origen",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "total_mensajes",
+              "displayName": "total_mensajes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "estado",
+              "displayName": "estado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "timestamp_iniciado",
+              "displayName": "timestamp_iniciado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "timestamp_finalizado",
+              "displayName": "timestamp_finalizado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "mensajes_ok",
+              "displayName": "mensajes_ok",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "mensajes_error",
+              "displayName": "mensajes_error",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "duracion_minutos",
+              "displayName": "duracion_minutos",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -1440,
+        -680
+      ],
+      "id": "a8458814-66a5-4574-b28b-e3415c87c4ba",
+      "name": "Google Sheets",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "1wMehGdLRpc7tHTE",
+          "name": "Google Sheets account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "16d14cd0-0ed9-41f3-a544-dddb01496f8e",
+              "name": "original_id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "2c1cbeb8-4d04-429c-99f1-b1bbb1b49405",
+              "name": "original_instancia",
+              "value": "={{ $json.instancia }}",
+              "type": "string"
+            },
+            {
+              "id": "9548d1bd-fe99-4adf-96a4-0f9105cbe2ba",
+              "name": "original_numero_remitente",
+              "value": "={{ $json.numero_remitente }}",
+              "type": "string"
+            },
+            {
+              "id": "f700164d-9a59-4e31-b06d-5a2119f60a14",
+              "name": "number ",
+              "value": "={{ $json.number }}",
+              "type": "string"
+            },
+            {
+              "id": "9fd8cdc8-e373-40a7-bd88-b4e33308ccb3",
+              "name": "caption",
+              "value": "={{ $json.caption }}",
+              "type": "string"
+            },
+            {
+              "id": "bda20712-edf1-40af-b7f3-cbb54b3b243b",
+              "name": "fileName",
+              "value": "={{ $json.fileName }}",
+              "type": "string"
+            },
+            {
+              "id": "bc667786-ecff-41ff-924e-76df5363d45b",
+              "name": "media",
+              "value": "={{ $json.media }}",
+              "type": "string"
+            },
+            {
+              "id": "fb3ef24b-c6c3-4926-a08d-447c60f18440",
+              "name": "mediatype",
+              "value": "={{ $json.mediatype }}",
+              "type": "string"
+            },
+            {
+              "id": "7eb28b86-b9c1-4457-8965-4c5491804680",
+              "name": "mimetype",
+              "value": "={{ $json.mimetype }}",
+              "type": "string"
+            },
+            {
+              "id": "9d1afc96-5e85-4e33-b4a3-5e318b2c19b0",
+              "name": "linkPreview",
+              "value": "={{ $json.linkPreview }}",
+              "type": "string"
+            },
+            {
+              "id": "ebc75344-428c-4729-af6d-4975ead9d59f",
+              "name": "mentionsEveryOne",
+              "value": "={{ $json.mentionsEveryOne }}",
+              "type": "string"
+            },
+            {
+              "id": "1ef25865-b77d-4626-ad28-3d019df5f441",
+              "name": "token",
+              "value": "={{ $json.token }}",
+              "type": "string"
+            },
+            {
+              "id": "f54c5d9c-1074-496d-a7fe-2ea9a01d3837",
+              "name": "url",
+              "value": "={{ $json.url }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        100,
+        -1020
+      ],
+      "id": "bf142aac-5751-43b6-91be-0410f2cf713d",
+      "name": "Edit Fields2"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"assignments\": [\n    {\n      \"name\": \"resultados_envios\",\n      \"value\": \"={{ $json }}\",\n      \"type\": \"object\"\n    }\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1780,
+        -1140
+      ],
+      "id": "1df54263-7353-44cf-9a47-a58321af5f6e",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1qTmFunrbfVWlG7EMTnGYrdeMbJxNt5DkEK8aE80jC2s",
+          "mode": "list",
+          "cachedResultName": "Enviador mensajes masivos",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1qTmFunrbfVWlG7EMTnGYrdeMbJxNt5DkEK8aE80jC2s/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 796414778,
+          "mode": "list",
+          "cachedResultName": "Estado_envios",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1qTmFunrbfVWlG7EMTnGYrdeMbJxNt5DkEK8aE80jC2s/edit#gid=796414778"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "numero_remitente": "={{ $json.numero_remitente }}",
+            "rta_api": "={{ $json.status_code }}",
+            "timestamp_envio": "={{(() => {\n  const fechaUTC = new Date();              // Fecha actual en UTC\n  fechaUTC.setHours(fechaUTC.getHours() - 3); // Ajuste a UTC-3\n  return fechaUTC.toISOString();            // Resultado en formato ISO\n})()}}",
+            "Instancia": "={{ $json.instancia }}",
+            "Estado": "={{ $json.estado }}",
+            "id": "={{ $json.original_id }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "timestamp_en_cola",
+              "displayName": "timestamp_en_cola",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "nro_lote",
+              "displayName": "nro_lote",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "numero_destinatario",
+              "displayName": "numero_destinatario",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Mensaje",
+              "displayName": "Mensaje",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "imagen_url",
+              "displayName": "imagen_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Estado",
+              "displayName": "Estado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "timestamp_job",
+              "displayName": "timestamp_job",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "nro_job",
+              "displayName": "nro_job",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "timestamp_envio",
+              "displayName": "timestamp_envio",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Instancia",
+              "displayName": "Instancia",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "numero_remitente",
+              "displayName": "numero_remitente",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "rta_api",
+              "displayName": "rta_api",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1400,
+        -1120
+      ],
+      "id": "0fcaa213-a79a-42d4-a7fb-3da9c7c2cba1",
+      "name": "Google Sheets1",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "1wMehGdLRpc7tHTE",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "tableId": "mensajes_whatsapp",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "numero_destinatario",
+              "fieldValue": "={{ $json['number '] }}"
+            },
+            {
+              "fieldId": "instancia",
+              "fieldValue": "={{ $json.original_instancia }}"
+            },
+            {
+              "fieldId": "numero_remitente",
+              "fieldValue": "={{ $json.original_numero_remitente }}"
+            },
+            {
+              "fieldId": "media",
+              "fieldValue": "={{ $json.media }}"
+            },
+            {
+              "fieldId": "caption",
+              "fieldValue": "={{ $json.caption }}"
+            },
+            {
+              "fieldId": "original_id",
+              "fieldValue": "={{ $json.original_id }}"
+            },
+            {
+              "fieldId": "file_name",
+              "fieldValue": "={{ $json.fileName }}"
+            },
+            {
+              "fieldId": "media",
+              "fieldValue": "={{ $json.media }}"
+            },
+            {
+              "fieldId": "media_type",
+              "fieldValue": "={{ $json.mediatype }}"
+            },
+            {
+              "fieldId": "mime_type",
+              "fieldValue": "={{ $json.mimetype }}"
+            },
+            {
+              "fieldId": "link_preview",
+              "fieldValue": "={{ $json.linkPreview }}"
+            },
+            {
+              "fieldId": "mentions_everyone",
+              "fieldValue": "={{ $json.mentionsEveryOne }}"
+            },
+            {
+              "fieldId": "token",
+              "fieldValue": "={{ $json.token }}"
+            },
+            {
+              "fieldId": "estado",
+              "fieldValue": "PENDING"
+            },
+            {
+              "fieldId": "url",
+              "fieldValue": "={{ $json.url }}"
+            },
+            {
+              "fieldId": "nro_job",
+              "fieldValue": "={{ $('Webhook').item.json.body.nro_job }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        360,
+        -1080
+      ],
+      "id": "f954920c-7212-408b-800b-899cea0fdcb9",
+      "name": "Supabase",
+      "credentials": {
+        "supabaseApi": {
+          "id": "lZxDEY6D9ZY7ybTj",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "mensajes_whatsapp",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "numero_destinatario",
+              "condition": "eq",
+              "keyValue": "={{ $json.body?.key?.remoteJid?.split('@')[0] ||$json.numero_destinatario  }}"
+            },
+            {
+              "keyName": "estado",
+              "condition": "eq",
+              "keyValue": "PENDING"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "estado",
+              "fieldValue": "={{ $json.statusCode >= 200 && $json.statusCode < 300 ? 'OK' : 'ERROR' }}"
+            },
+            {
+              "fieldId": "status_code",
+              "fieldValue": "={{ $json.statusCode || $json.error?.status || null }}"
+            },
+            {
+              "fieldId": "rta_api",
+              "fieldValue": "={{ JSON.stringify($json.body || $json) }}"
+            },
+            {
+              "fieldId": "timestamp_envio",
+              "fieldValue": "={{(() => {\n  const fechaUTC = new Date();              // Fecha actual en UTC\n  fechaUTC.setHours(fechaUTC.getHours() - 3); // Ajuste a UTC-3\n  return fechaUTC.toISOString();            // Resultado en formato ISO\n})()}}"
+            },
+            {
+              "fieldId": "whatsapp_message_id",
+              "fieldValue": "={{ $json.body?.key?.id || null }}"
+            },
+            {
+              "fieldId": "remote_jid",
+              "fieldValue": "={{ $json.body?.key?.remoteJid || null }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1020,
+        -1120
+      ],
+      "id": "0d1471be-3080-4437-828d-78873550212d",
+      "name": "Supabase1",
+      "credentials": {
+        "supabaseApi": {
+          "id": "lZxDEY6D9ZY7ybTj",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1qTmFunrbfVWlG7EMTnGYrdeMbJxNt5DkEK8aE80jC2s",
+          "mode": "list",
+          "cachedResultName": "Enviador mensajes masivos",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1qTmFunrbfVWlG7EMTnGYrdeMbJxNt5DkEK8aE80jC2s/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 911537833,
+          "mode": "list",
+          "cachedResultName": "Jobs",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1qTmFunrbfVWlG7EMTnGYrdeMbJxNt5DkEK8aE80jC2s/edit#gid=911537833"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "nro_job": "={{ $('Webhook').first().json.body.nro_job }}",
+            "timestamp_finalizado": "={{(() => {\n  const fechaUTC = new Date();              // Fecha actual en UTC\n  fechaUTC.setHours(fechaUTC.getHours() - 3); // Ajuste a UTC-3\n  return fechaUTC.toISOString();            // Resultado en formato ISO\n})()}}",
+            "estado": "finalizado"
+          },
+          "matchingColumns": [
+            "nro_job"
+          ],
+          "schema": [
+            {
+              "id": "timestamp_recibido",
+              "displayName": "timestamp_recibido",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "nro_job",
+              "displayName": "nro_job",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "origen",
+              "displayName": "origen",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "total_mensajes",
+              "displayName": "total_mensajes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "estado",
+              "displayName": "estado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "timestamp_iniciado",
+              "displayName": "timestamp_iniciado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "timestamp_finalizado",
+              "displayName": "timestamp_finalizado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "mensajes_ok",
+              "displayName": "mensajes_ok",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "mensajes_error",
+              "displayName": "mensajes_error",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "duracion_minutos",
+              "displayName": "duracion_minutos",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        3200,
+        -1120
+      ],
+      "id": "331d60a8-3d4f-43f6-a7af-eb89962ac2eb",
+      "name": "Google Sheets2",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "1wMehGdLRpc7tHTE",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "mensajes_whatsapp",
+        "limit": 100,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "nro_job",
+              "condition": "eq",
+              "keyValue": "={{ $('Webhook').first().json.body.nro_job }}"
+            },
+            {
+              "keyName": "timestamp_envio",
+              "condition": "is",
+              "keyValue": "={{ null }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2360,
+        -960
+      ],
+      "id": "6fa68f7b-f189-4d01-a451-4cc98443a79d",
+      "name": "Supabase2",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "lZxDEY6D9ZY7ybTj",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ca5ec804-2780-4c78-b6c1-3c5ef4885c68",
+              "leftValue": "={{ $json.estaVacio }}",
+              "rightValue": "=0",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2900,
+        -1060
+      ],
+      "id": "a5494793-48e9-41be-aa7c-64e0207d7215",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [\n  {\n    json: {\n      estado: \"pendiente\",\n      mensaje: \"⚠️ Aún no se han procesado todos los mensajes del job. Esperando...\"\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3240,
+        -780
+      ],
+      "id": "3afd94d0-b49f-4f96-a6e1-3fbbf790ee5c",
+      "name": "Code4"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Verifica si todos los items están vacíos o si no hay datos útiles\nconst vacio = items.length === 0 || Object.keys(items[0].json || {}).length === 0;\n\nreturn [{ json: { estaVacio: vacio } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2580,
+        -960
+      ],
+      "id": "f31ffefc-98e8-4541-b55e-42ccfc17f1bf",
+      "name": "Code5"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "enviar-whatsapp",
+        "options": {}
+      },
+      "id": "0e98c63b-371a-496e-be5f-4a92a903c8a2",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -1820,
+        -660
+      ],
+      "webhookId": "39777e6c-47fb-40d7-ba06-67961a1bd3e6"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Code3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code1": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Supabase1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Supabase1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code2": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Supabase2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code3": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Code1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields2": {
+      "main": [
+        [
+          {
+            "node": "Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "Code2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets1": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase1": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase2": {
+      "main": [
+        [
+          {
+            "node": "Code5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code5": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "f7aa605d-de60-4d4b-877c-a033a18fdba7",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "57200494d872ac264098b6b0925d494dbe35244a0413843037c4b64edd756784"
+  },
+  "id": "1fV0yQJpjNKXGHBT",
+  "tags": []
+}
